@@ -1,37 +1,30 @@
-package gw.util.debugsnapshot
+uses gw.api.locale.DisplayKey
+uses gw.util.debugsnapshot.DebugSnapshotUtil
 
-uses org.slf4j.LoggerFactory
+CONDITION (aBContact : entity.ABContact):
+  return (aBContact typeis ABPerson) and (aBContact.DateOfBirth != null
+  and (gw.api.util.DateUtil.compareIgnoreTime(
+      (aBContact as ABPerson).DateOfBirth,
+      gw.api.util.DateUtil.currentDate()) > 0)
 
-class DebugSnapshotUtil {
+ACTION (aBContact : entity.ABContact, actions : gw.rules.Action):
+  // Require that the DateOfBirth, if specified, is in the past.
 
-  static var _logger = LoggerFactory.getLogger("DebugSnapshot")
-
-  static function captureSnapshot(contact : ABContact) : String {
-    var sb = new StringBuilder()
-    sb.append("=== DEBUG SNAPSHOT ===\n")
-    sb.append("Timestamp  : " + new java.util.Date() + "\n")
-    sb.append("Entity     : ABContact\n")
-    sb.append("PublicID   : " + contact.PublicID + "\n")
-    sb.append("Name       : " + contact.DisplayName + "\n")
-    sb.append("Subtype    : " + contact.Subtype + "\n")
-    sb.append("======================\n")
-    var snapshot = sb.toString()
-    _logger.info(snapshot)
-    return snapshot
+  try {
+    if (gw.api.util.DateUtil.compareIgnoreTime(
+        (aBContact as ABPerson).DateOfBirth,
+        gw.api.util.DateUtil.currentDate()) > 0) {
+      
+      // ✅ TRIGGER SNAPSHOT on validation failure
+      DebugSnapshotUtil.captureSnapshot(aBContact)
+      
+      aBContact.reject(TC_LOADSAVE, "Date of Birth must be in the past", null, null)
+    }
+  } catch(e : Exception) {
+    
+    // ✅ TRIGGER SNAPSHOT on error
+    DebugSnapshotUtil.captureOnError(aBContact, e)
+    throw e
   }
 
-  static function captureOnError(contact : ABContact, e : Exception) : String {
-    var sb = new StringBuilder()
-    sb.append("=== ERROR SNAPSHOT ===\n")
-    sb.append("Timestamp  : " + new java.util.Date() + "\n")
-    sb.append("Entity     : ABContact\n")
-    sb.append("PublicID   : " + contact.PublicID + "\n")
-    sb.append("Name       : " + contact.DisplayName + "\n")
-    sb.append("Error      : " + e.Message + "\n")
-    sb.append("======================\n")
-    var snapshot = sb.toString()
-    _logger.error(snapshot)
-    return snapshot
-  }
-
-}
+END
